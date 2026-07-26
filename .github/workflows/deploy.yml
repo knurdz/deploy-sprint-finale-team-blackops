@@ -1,3 +1,4 @@
+# AI-REVIEW-MARKER: participant must manually remove this marker
 name: Request Organizer Deploy
 
 on:
@@ -30,9 +31,6 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Resolve deploy request
         id: request
         env:
@@ -71,47 +69,6 @@ jobs:
         with:
           ref: ${{ steps.request.outputs.sha }}
 
-      - name: Build container image
-        env:
-          SHA: ${{ steps.request.outputs.sha }}
-        run: |
-          docker build -t deploy-sprint/team-site:$SHA --build-arg GIT_SHA=$SHA team-site
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Tag and push image to GHCR
-        id: image
-        env:
-          SHA: ${{ steps.request.outputs.sha }}
-          OWNER: ${{ github.repository_owner }}
-        run: |
-          set -euo pipefail
-          image=$(echo "ghcr.io/${OWNER}/team-site" | tr '[:upper:]' '[:lower:]')
-          docker tag "deploy-sprint/team-site:$SHA" "$image:$SHA"
-          docker push "$image:$SHA"
-          digest=$(docker image inspect "$image:$SHA" --format '{{index .RepoDigests 0}}' 2>/dev/null || echo 'unknown')
-          {
-            echo "image=$image:$SHA"
-            echo "digest=$digest"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Verify container serves the app
-        id: container_check
-        env:
-          IMAGE: ${{ steps.image.outputs.image }}
-        run: |
-          set -uo pipefail
-          healthy=false
-          container_id=$(docker run -d --rm -p 8080:80 "$IMAGE") || true
-
-          if [ -n "$container_id" ]; then
-            for i in $(seq 1 10); do
-              if curl -sf http://localhost:8080/health/ > /dev/null; then
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -176,11 +133,6 @@ jobs:
               fi
               sleep 1
             done
-            echo "--- Container log evidence ---"
-            docker logs "$container_id" || true
-            docker stop "$container_id" >/dev/null 2>&1 || true
-          else
-            echo "Container failed to start."
 
             if [ "$healthy" != true ]; then
               echo "Candidate never became healthy; container logs:"
@@ -193,19 +145,6 @@ jobs:
           fi
 
           echo "healthy=$healthy" >> "$GITHUB_OUTPUT"
-
-      - name: Fail if the pushed image doesn't serve correctly
-        if: steps.container_check.outputs.healthy != 'true'
-        run: |
-          echo "::error::Container built from the pushed image failed its health check; not submitting a deploy request."
-      - name: Switch current release symlink
-        if: steps.candidate_health.outputs.healthy == 'true'
-        env:
-          RELEASE_DIR: ${{ steps.release.outputs.release_dir }}
-        run: |
-          set -euo pipefail
-          ln -sfn "$RELEASE_DIR" current
-          echo "Switched current -> $RELEASE_DIR after candidate health check passed."
 
       - name: Record known-good release evidence on failed health check
         if: steps.candidate_health.outputs.healthy != 'true'
@@ -227,8 +166,77 @@ jobs:
           echo "Candidate failed its health check; previous release was left in place and no deploy was requested."
           exit 1
 
-      - name: Request deploy from organizer deployer
+      - name: Switch current release symlink
         if: steps.candidate_health.outputs.healthy == 'true'
+        env:
+          RELEASE_DIR: ${{ steps.release.outputs.release_dir }}
+        run: |
+          set -euo pipefail
+          ln -sfn "$RELEASE_DIR" current
+          echo "Switched current -> $RELEASE_DIR after candidate health check passed."
+
+      - name: Build container image
+        env:
+          SHA: ${{ steps.request.outputs.sha }}
+        run: |
+          docker build -t deploy-sprint/team-site:$SHA --build-arg GIT_SHA=$SHA team-site
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and push image to GHCR
+        id: image
+        env:
+          SHA: ${{ steps.request.outputs.sha }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          image=$(echo "ghcr.io/${OWNER}/team-site" | tr '[:upper:]' '[:lower:]')
+          docker tag "deploy-sprint/team-site:$SHA" "$image:$SHA"
+          docker push "$image:$SHA"
+          digest=$(docker image inspect "$image:$SHA" --format '{{index .RepoDigests 0}}' 2>/dev/null || echo 'unknown')
+          {
+            echo "image=$image:$SHA"
+            echo "digest=$digest"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify container serves the app
+        id: container_check
+        env:
+          IMAGE: ${{ steps.image.outputs.image }}
+        run: |
+          set -uo pipefail
+          healthy=false
+          container_id=$(docker run -d --rm -p 8080:80 "$IMAGE") || true
+
+          if [ -n "$container_id" ]; then
+            for i in $(seq 1 10); do
+              if curl -sf http://localhost:8080/health/ > /dev/null; then
+                healthy=true
+                break
+              fi
+              sleep 1
+            done
+            echo "--- Container log evidence ---"
+            docker logs "$container_id" || true
+            docker stop "$container_id" >/dev/null 2>&1 || true
+          else
+            echo "Container failed to start."
+          fi
+
+          echo "healthy=$healthy" >> "$GITHUB_OUTPUT"
+
+      - name: Fail if the pushed image doesn't serve correctly
+        if: steps.container_check.outputs.healthy != 'true'
+        run: |
+          echo "::error::Container built from the pushed image failed its health check; not submitting a deploy request."
+          exit 1
+
+      - name: Request deploy from organizer deployer
         env:
           DEPLOYER_DISPATCH_TOKEN: ${{ secrets.DEPLOYER_DISPATCH_TOKEN }}
           DEPLOYER_REPO: knurdz/deploy-sprint-deployer
@@ -276,7 +284,19 @@ jobs:
             "https://api.github.com/repos/${DEPLOYER_REPO}/dispatches" \
             --data @payload.json
 
-- name: Record container deploy evidence
+          echo "Requested organizer deployment for ${TEAM_REPO}@${TEAM_SHA} (image ${IMAGE}, target ${VPS_HOST}:${APP_PORT})."
+
+      - name: Send deploy alert via Resend
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL || 'Deploy Sprint <alerts@knurdz.org>' }}
+          ALERT_RECIPIENT_EMAIL: ${{ vars.ALERT_RECIPIENT_EMAIL || 'judges@knurdz.org' }}
+          EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER || 'resend' }}
+          DEPLOY_SHA: ${{ steps.request.outputs.sha }}
+          SOURCE_RUN_ID: ${{ steps.request.outputs.source_run_id }}
+        run: node scripts/send-deploy-alert.mjs
+
+      - name: Record container deploy evidence
         if: always()
         env:
           APP_PORT: ${{ vars.APP_PORT || '8080' }}
@@ -310,17 +330,3 @@ jobs:
             echo "| Candidate health check | \`${{ steps.candidate_health.outputs.healthy }}\` |"
             echo "| Traffic switch requested | \`${{ steps.candidate_health.outputs.healthy == 'true' }}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ vars.NODE_VERSION || '20' }}
-
-      - name: Send deploy alert via Resend
-        env:
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL || 'Deploy Sprint <alerts@knurdz.org>' }}
-          ALERT_RECIPIENT_EMAIL: ${{ vars.ALERT_RECIPIENT_EMAIL || 'judges@knurdz.org' }}
-          EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER || 'resend' }}
-          DEPLOY_SHA: ${{ steps.request.outputs.sha }}
-          SOURCE_RUN_ID: ${{ steps.request.outputs.source_run_id }}
-        run: node scripts/send-deploy-alert.mjs
