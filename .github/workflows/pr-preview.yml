@@ -1,0 +1,65 @@
+# AI-REVIEW-MARKER: participant must manually remove this marker
+name: PR Preview
+
+on:
+  pull_request:
+
+concurrency:
+  group: pr-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    name: Build PR preview
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ vars.NODE_VERSION || '20' }}
+          cache: npm
+          cache-dependency-path: team-site/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: team-site
+
+      - name: Build PR version
+        run: npm run build
+        working-directory: team-site
+
+      - name: Resolve preview artifact name
+        id: artifact
+        env:
+          PREVIEW_PREFIX: ${{ vars.PREVIEW_ARTIFACT_NAME || 'preview' }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: echo "name=${PREVIEW_PREFIX}-${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: team-site/dist
+          retention-days: 14
+
+      - name: Publish preview summary
+        run: |
+          {
+            echo "### PR Preview"
+            echo ""
+            echo "This build is a **preview only** and is never deployed to production."
+            echo "Production deploys run separately from \`deploy.yml\`/\`pages.yml\` on \`main\`/\`production\`."
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| PR | #${{ github.event.pull_request.number }} |"
+            echo "| PR head commit | \`${{ github.event.pull_request.head.sha }}\` |"
+            echo "| Preview artifact | \`${{ steps.artifact.outputs.name }}\` |"
+            echo "| Build workflow run | [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
+          } >> "$GITHUB_STEP_SUMMARY"
