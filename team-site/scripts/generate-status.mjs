@@ -25,12 +25,54 @@ const assignedDomain = process.env.ASSIGNED_DOMAIN ?? null;
 const domainRecordType = process.env.DNS_RECORD_TYPE ?? null;
 const publicUrlConfigured = Boolean(process.env.VITE_PUBLIC_URL || process.env.PUBLIC_URL);
 
+const openWeatherCity = process.env.OPENWEATHER_CITY ?? 'Colombo';
+
+async function fetchWeather() {
+  const apiKey = process.env.OPENWEATHER_API_KEY;
+  const base = {
+    task: 'T07',
+    provider: 'openweather',
+    city: openWeatherCity,
+    keyExposed: false,
+  };
+
+  if (!apiKey) {
+    return { ...base, available: false };
+  }
+
+  try {
+    const params = new URLSearchParams({
+      q: openWeatherCity,
+      appid: apiKey,
+      units: 'metric',
+    });
+    const response = await fetch(`https://api.openweathermap.org/data/2.5/weather?${params}`);
+    if (!response.ok) {
+      return { ...base, available: false };
+    }
+    const data = await response.json();
+    return {
+      ...base,
+      available: true,
+      temperatureC: data.main?.temp ?? null,
+      condition: data.weather?.[0]?.main ?? null,
+    };
+  } catch {
+    return { ...base, available: false };
+  }
+}
+
+const weather = await fetchWeather();
+
 const healthDir = join(distDir, 'health');
 const statusDir = join(distDir, 'status');
+const weatherDir = join(distDir, 'api', 'weather');
 mkdirSync(healthDir, { recursive: true });
 mkdirSync(statusDir, { recursive: true });
+mkdirSync(weatherDir, { recursive: true });
 
 writeFileSync(join(healthDir, 'index.html'), 'ok\n');
+writeFileSync(join(weatherDir, 'index.html'), `${JSON.stringify(weather, null, 2)}\n`);
 
 const status = {
   task: 'T01',
@@ -48,6 +90,7 @@ const status = {
     publicUrlConfigured,
     secretsRedacted: true,
   },
+  weather,
 };
 
 writeFileSync(join(statusDir, 'index.html'), `${JSON.stringify(status, null, 2)}\n`);
