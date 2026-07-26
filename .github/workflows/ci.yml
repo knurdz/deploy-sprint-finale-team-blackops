@@ -59,6 +59,8 @@ jobs:
           WEB3FORMS_TARGET_EMAIL: ${{ vars.WEB3FORMS_TARGET_EMAIL }}
           FEATURE_SHOW_INSIGHTS: ${{ secrets.FEATURE_FLAG_NAME }}
           VITE_FEATURE_SHOW_INSIGHTS: ${{ secrets.FEATURE_FLAG_NAME }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER || 'resend' }}
         run: npm run build
         working-directory: team-site
 
@@ -67,6 +69,51 @@ jobs:
         with:
           name: site-dist-${{ github.sha }}
           path: team-site/dist
+
+  docker-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build production image
+        working-directory: team-site
+        run: |
+          docker build \
+            --build-arg GIT_SHA=${{ github.sha }} \
+            -t deploy-sprint/blackops:${{ github.sha }} \
+            .
+
+      - name: Smoke-test the built image
+        run: |
+          docker run -d --rm --name t14-smoke -p 8080:80 deploy-sprint/blackops:${{ github.sha }}
+          for i in $(seq 1 10); do
+            if curl -sf http://localhost:8080/health/ > /dev/null; then
+              echo "Container served /health successfully."
+              break
+            fi
+            if [ "$i" -eq 10 ]; then
+              echo "Container never became healthy."
+              docker logs t14-smoke
+              exit 1
+            fi
+            sleep 1
+          done
+          curl -sf http://localhost:8080/ > /dev/null
+          docker stop t14-smoke
+
+      - name: Record image evidence
+        run: |
+          {
+            echo "### Production Docker image"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Image tag | \`deploy-sprint/blackops:${{ github.sha }}\` |"
+            echo "| Image ID | \`$(docker image inspect deploy-sprint/blackops:${{ github.sha }} --format '{{.Id}}')\` |"
+            echo "| Size | \`$(docker image inspect deploy-sprint/blackops:${{ github.sha }} --format '{{.Size}}')\` bytes |"
+            echo "| Smoke test | \`GET /\` and \`GET /health/\` both succeeded against a running container |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   dry-run-deploy:
     needs: build
