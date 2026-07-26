@@ -1,6 +1,9 @@
 node_modules
 dist
 portal/.portal-data
+/releases
+/current
+/Dockerfile.release
 .DS_Store
 .env
 .env.*
