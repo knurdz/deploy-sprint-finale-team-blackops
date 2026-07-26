@@ -24,9 +24,12 @@ const domainConnected = process.env.DOMAIN_CONNECTED === 'true';
 const assignedDomain = process.env.ASSIGNED_DOMAIN ?? null;
 const domainRecordType = process.env.DNS_RECORD_TYPE ?? null;
 
-mkdirSync(distDir, { recursive: true });
+const healthDir = join(distDir, 'health');
+const statusDir = join(distDir, 'status');
+mkdirSync(healthDir, { recursive: true });
+mkdirSync(statusDir, { recursive: true });
 
-writeFileSync(join(distDir, 'health'), 'ok\n');
+writeFileSync(join(healthDir, 'index.html'), 'ok\n');
 
 const status = {
   task: 'T01',
@@ -42,6 +45,6 @@ const status = {
   },
 };
 
-writeFileSync(join(distDir, 'status'), `${JSON.stringify(status, null, 2)}\n`);
+writeFileSync(join(statusDir, 'index.html'), `${JSON.stringify(status, null, 2)}\n`);
 
 console.log(`Generated /health and /status for commit ${commitSha}`);
