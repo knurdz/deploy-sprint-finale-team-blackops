@@ -32,7 +32,7 @@ Use this section for short public notes and links. Full task instructions and ch
 | --- | --- | --- | --- |
 | T01 | #1 | `http://20.51.109.233`, `/health` (200), `/status` (team/commit/releaseId/deployTime/T01 marker) | Deploy workflow requests organizer deployer after CI passes on `main`; `/health` and `/status` are generated at build time from the actual commit. |
 | T02 |  | [docs/t02-dns-evidence.md](docs/t02-dns-evidence.md) | Pending: DNS records + dig/curl evidence to be filled in after portal login |
-| T03 |  |  |  |
+| T03 |  | `.github/workflows/ci.yml` — `build` job uploads `team-site/dist` as artifact `site-dist-<commit-sha>`; new `dry-run-deploy` job (needs: `build`) downloads that same artifact via `actions/download-artifact@v4` and runs no `npm ci`/`npm run build`; artifact name, commit SHA, and build run link are written to the job's workflow summary. | PR pending — will add PR # once opened. |
 | T04 |  |  |  |
 | T05 |  |  |  |
 | T06 |  |  |  |
