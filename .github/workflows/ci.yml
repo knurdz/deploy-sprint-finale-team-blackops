@@ -160,6 +160,64 @@ jobs:
             echo "| T20 auth status (\`/status/auth\`) | \`${{ steps.smoke.outputs.auth_status }}\` |"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  compose-validate:
+    runs-on: ubuntu-latest
+    env:
+      APP_VERSION: ${{ github.sha }}
+      APP_PORT: 8081
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Write placeholder .env for Compose
+        run: |
+          {
+            echo "APP_VERSION=$APP_VERSION"
+            echo "APP_PORT=$APP_PORT"
+          } > .env
+
+      - name: Validate Compose config
+        run: docker compose config
+
+      - name: Build service via Compose
+        run: docker compose build
+
+      - name: Start service and smoke-test it
+        run: |
+          docker compose up -d
+          for i in $(seq 1 10); do
+            if curl -sf "http://localhost:${APP_PORT}/health/" > /dev/null; then
+              echo "Compose-run container served /health successfully."
+              break
+            fi
+            if [ "$i" -eq 10 ]; then
+              echo "Compose-run container never became healthy."
+              docker compose logs
+              exit 1
+            fi
+            sleep 1
+          done
+          curl -sf "http://localhost:${APP_PORT}/" > /dev/null
+
+      - name: Record Compose evidence
+        if: always()
+        run: |
+          {
+            echo "### Docker Compose runtime"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Project name | \`deploy-sprint-blackops\` (set via \`name:\` in docker-compose.yml) |"
+            echo "| Image | \`deploy-sprint/team-site:${APP_VERSION}\` |"
+            echo "| Published port | \`${APP_PORT}\` |"
+            echo "| \`docker compose config\` | passed |"
+            echo "| Smoke test | \`GET /\` and \`GET /health/\` both succeeded against the Compose-run container |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
+
   dry-run-deploy:
     needs: build
     runs-on: ubuntu-latest

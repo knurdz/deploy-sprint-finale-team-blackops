@@ -1,0 +1,15 @@
+# AI-REVIEW-MARKER: participant must manually remove this marker
+name: deploy-sprint-blackops
+
+services:
+  team-site:
+    build:
+      context: ./team-site
+      args:
+        GIT_SHA: ${APP_VERSION:-local}
+    image: deploy-sprint/team-site:${APP_VERSION:-local}
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    env_file:
+      - .env
