@@ -1,4 +1,3 @@
-// AI-REVIEW-MARKER: participant must manually remove this marker
 import { Sparkles } from 'lucide-react';
 import type { Course } from '../data/courses';
 
