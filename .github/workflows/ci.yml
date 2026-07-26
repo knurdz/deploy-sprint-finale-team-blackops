@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: ${{ vars.NODE_VERSION || '20' }}
           cache: npm
           cache-dependency-path: team-site/package-lock.json
 
@@ -30,6 +30,8 @@ jobs:
           DOMAIN_CONNECTED: ${{ vars.DOMAIN_CONNECTED }}
           ASSIGNED_DOMAIN: ${{ vars.ASSIGNED_DOMAIN }}
           DNS_RECORD_TYPE: ${{ vars.DNS_RECORD_TYPE }}
+          OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+          OPENWEATHER_CITY: ${{ vars.OPENWEATHER_CITY || 'Colombo' }}
         run: npm run build
         working-directory: team-site
 
