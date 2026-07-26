@@ -71,6 +71,14 @@ const contactProvider = {
   targetEmailConfigured: Boolean(process.env.WEB3FORMS_TARGET_EMAIL),
 };
 
+function featureFlags() {
+  return {
+    task: 'T15',
+    showInsights: process.env.FEATURE_SHOW_INSIGHTS === 'true',
+    valueRedacted: true,
+  };
+}
+
 const healthDir = join(distDir, 'health');
 const statusDir = join(distDir, 'status');
 const weatherDir = join(distDir, 'api', 'weather');
@@ -102,6 +110,7 @@ const status = {
   },
   weather,
   contact: contactProvider,
+  features: featureFlags(),
 };
 
 writeFileSync(join(statusDir, 'index.html'), `${JSON.stringify(status, null, 2)}\n`);
