@@ -10,7 +10,7 @@ export const deadlineCards: DeadlineCard[] = [
     id: 'repo-setup-checkpoint',
     label: 'Repo setup checkpoint',
     due: 'Friday 20:00',
-    action: 'Verify your assigned repository, remotes, and all challenge branches before feature work.',
+    action: 'Confirmed remotes, branches, and CI access are working; team is unblocked for feature work.',
   },
   {
     id: 'review',
