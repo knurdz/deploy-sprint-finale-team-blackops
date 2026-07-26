@@ -4,11 +4,11 @@ Complete this file on `main` as tasks are completed. Do not paste secrets, priva
 
 ## Team
 
-- Team name:
-- Team members:
-- Live IP URL:
-- Assigned domain URL:
-- Repository URL:
+- Team name: Blackops
+- Team members: Kalai-08, Koshi2004, Aswieni
+- Live IP URL: http://20.51.109.233
+- Assigned domain URL: https://blackops.deploysprint-finals.knurdz.org
+- Repository URL: https://github.com/knurdz/deploy-sprint-finale-team-blackops
 
 ## Release Evidence
 
@@ -30,7 +30,7 @@ Use this section for short public notes and links. Full task instructions and ch
 
 | Task | PR | Evidence | Notes |
 | --- | --- | --- | --- |
-| T01 |  |  |  |
+| T01 | #1 | `http://20.51.109.233`, `/health` (200), `/status` (team/commit/releaseId/deployTime/T01 marker) | Deploy workflow requests organizer deployer after CI passes on `main`; `/health` and `/status` are generated at build time from the actual commit. |
 | T02 |  |  |  |
 | T03 |  |  |  |
 | T04 |  |  |  |

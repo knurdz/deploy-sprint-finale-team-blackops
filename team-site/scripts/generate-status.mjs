@@ -21,9 +21,12 @@ const releaseId = process.env.GITHUB_RUN_ID ?? commitSha.slice(0, 7);
 const teamName = process.env.TEAM_NAME ?? 'blackops';
 const deployTime = new Date().toISOString();
 
-mkdirSync(distDir, { recursive: true });
+const healthDir = join(distDir, 'health');
+const statusDir = join(distDir, 'status');
+mkdirSync(healthDir, { recursive: true });
+mkdirSync(statusDir, { recursive: true });
 
-writeFileSync(join(distDir, 'health'), 'ok\n');
+writeFileSync(join(healthDir, 'index.html'), 'ok\n');
 
 const status = {
   task: 'T01',
@@ -33,6 +36,6 @@ const status = {
   deployTime,
 };
 
-writeFileSync(join(distDir, 'status'), `${JSON.stringify(status, null, 2)}\n`);
+writeFileSync(join(statusDir, 'index.html'), `${JSON.stringify(status, null, 2)}\n`);
 
 console.log(`Generated /health and /status for commit ${commitSha}`);
