@@ -52,8 +52,6 @@ try {
   });
 
   if (!response.ok) {
-    // Never log the response body here: some providers echo request
-    // details (including auth hints) in error payloads.
     recordEvidence('send-failed', { 'HTTP status': response.status });
     process.exit(0);
   }
