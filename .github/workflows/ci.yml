@@ -43,6 +43,10 @@ jobs:
             echo "| Install command | \`npm ci\` (working-directory: team-site) |"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Run release readiness check
+        run: npm test
+        working-directory: team-site
+
       - name: Build
         env:
           VITE_PUBLIC_URL: ${{ vars.PUBLIC_URL || vars.DOMAIN_PUBLIC_URL || secrets.PUBLIC_URL || vars.IP_PUBLIC_URL }}
