@@ -24,11 +24,11 @@ jobs:
       - name: Validate release_ref input
         run: |
           set -euo pipefail
-          if [ -z "${{ inputs.release_ref }}" ]; then
+          if [ -z "${{ inputs.releaseRef }}" ]; then
             echo "release_ref input is required" >&2
             exit 1
           fi
-          echo "Rollback requested for release_ref=${{ inputs.release_ref }}"
+          echo "Rollback requested for release_ref=${{ inputs.releaseRef }}"
 
       - name: Checkout known-good release
         uses: actions/checkout@v4
