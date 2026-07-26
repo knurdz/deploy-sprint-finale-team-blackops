@@ -23,6 +23,7 @@ const deployTime = new Date().toISOString();
 const domainConnected = process.env.DOMAIN_CONNECTED === 'true';
 const assignedDomain = process.env.ASSIGNED_DOMAIN ?? null;
 const domainRecordType = process.env.DNS_RECORD_TYPE ?? null;
+const publicUrlConfigured = Boolean(process.env.VITE_PUBLIC_URL || process.env.PUBLIC_URL);
 
 const healthDir = join(distDir, 'health');
 const statusDir = join(distDir, 'status');
@@ -42,6 +43,10 @@ const status = {
     host: assignedDomain,
     recordType: domainRecordType,
     verifiedAt: domainConnected ? deployTime : null,
+  },
+  config: {
+    publicUrlConfigured,
+    secretsRedacted: true,
   },
 };
 
