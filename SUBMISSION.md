@@ -31,7 +31,7 @@ Use this section for short public notes and links. Full task instructions and ch
 | Task | PR | Evidence | Notes |
 | --- | --- | --- | --- |
 | T01 |  |  |  |
-| T02 |  |  |  |
+| T02 |  | [docs/t02-dns-evidence.md](docs/t02-dns-evidence.md) | Pending: DNS records + dig/curl evidence to be filled in after portal login |
 | T03 |  |  |  |
 | T04 |  |  |  |
 | T05 |  |  |  |
