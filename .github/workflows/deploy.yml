@@ -11,10 +11,10 @@ on:
 
 permissions:
   contents: read
-  packages: write
+  actions: read
 
 concurrency:
-  group: request-organizer-deploy
+  group: ${{ vars.DEPLOY_CONCURRENCY_GROUP || 'deploy-blackops-production' }}
   cancel-in-progress: false
 
 jobs:
