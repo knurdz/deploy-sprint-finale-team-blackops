@@ -51,8 +51,8 @@ Use this section for short public notes and links. Full task instructions and ch
 | T17 |  |  |  |
 | T18 |  |  |  |
 | T19 |  |  |  |
-| T20 |  |  |  |
-| T21 |  |  |  |
+| T20 |  | `team-site/server/` adds a small Express service (`/auth/google`, `/auth/google/callback`, `/auth/logout`, `/auth/me`, `/status/auth`) run alongside nginx in the same container (`team-site/nginx.conf` proxies `/auth/` and `/status/auth` to it); state is verified via session before code exchange, the code exchange and `GOOGLE_CLIENT_SECRET` never leave the server, and CI's `docker-image` job smoke-tests the real container. | Verified locally end-to-end: unconfigured mode 503s cleanly, a fake client ID produces a correctly-shaped Google redirect, mismatched state is rejected, a real call to Google's token endpoint with fake creds is rejected server-side without leaking the secret, and logout destroys the session. Actually registering the Google OAuth client and wiring `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/`SESSION_SECRET` into the live VPS container are manual/deployer-side steps outside this PR's automated reach — same caveat as T07/T17/T18. |
+| T21 |  | `.github/workflows/deploy.yml`, `.github/workflows/rollback.yml`, `.github/workflows/pages.yml` | Added explicit workflow permissions and shared deployment concurrency with safe queueing (`cancel-in-progress: false`) using the deploy concurrency group fallback `deploy-blackops-production`; verified by parsing the workflow YAML and confirming no `pull_request_target` usage remains. |
 | T22 |  |  |  |
 | T23 |  |  |  |
 | T24 |  |  |  |

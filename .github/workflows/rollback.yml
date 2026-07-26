@@ -9,9 +9,10 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: rollback-deploy
+  group: ${{ vars.DEPLOY_CONCURRENCY_GROUP || 'deploy-blackops-production' }}
   cancel-in-progress: false
 
 jobs:

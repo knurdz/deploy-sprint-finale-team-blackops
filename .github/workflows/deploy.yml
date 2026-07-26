@@ -1,5 +1,7 @@
 name: Request Organizer Deploy
 
+# AI-REVIEW-MARKER: participant must manually remove this marker
+
 on:
   workflow_run:
     workflows: ["CI"]
@@ -11,9 +13,10 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: request-organizer-deploy
+  group: ${{ vars.DEPLOY_CONCURRENCY_GROUP || 'deploy-blackops-production' }}
   cancel-in-progress: false
 
 jobs:
