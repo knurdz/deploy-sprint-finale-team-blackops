@@ -3,18 +3,67 @@ name: Post-Deploy Smoke Tests
 on:
   pull_request:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Request Organizer Deploy"]
+    types:
+      - completed
 
 jobs:
   smoke-test:
+    if: >-
+      github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Run starter smoke test (as provided)
+      - name: Run post-deploy smoke tests
         env:
-          PUBLIC_URI: ${{ secrets.PUBLIC_URI }}
+          PUBLIC_URL: ${{ secrets.PUBLIC_URL }}
         run: |
-          set -euo pipefail
-          base_url="${PUBLIC_URI:?PUBLIC_URI required}"
-          curl --fail "$base_url/"
-          curl --fail "$base_url/health"
-          curl --fail "$base_url/status"
+          set -uo pipefail
+
+          base_url="${PUBLIC_URL:?PUBLIC_URL secret is required}"
+          base_url="${base_url%/}"
+
+          summary_rows=""
+          overall=0
+
+          check() {
+            path="$1"
+            url="${base_url}${path}"
+            code="$(curl --silent --show-error --location --max-time 15 \
+              --output /tmp/smoke-body --write-out '%{http_code}' "$url")" || code="000"
+            echo "GET ${path} -> HTTP ${code}"
+            if [ "$code" -lt 200 ] || [ "$code" -ge 400 ]; then
+              echo "FAIL: ${path} returned HTTP ${code}"
+              echo "--- response body (truncated) ---"
+              head -c 500 /tmp/smoke-body 2>/dev/null || true
+              echo
+              summary_rows="${summary_rows}| \`${path}\` | HTTP ${code} (failed) |"$'\n'
+              return 1
+            fi
+            summary_rows="${summary_rows}| \`${path}\` | HTTP ${code} |"$'\n'
+            return 0
+          }
+
+          check "/" || overall=1
+          check "/health" || overall=1
+          check "/status" || overall=1
+
+          {
+            echo "### Post-deploy smoke tests"
+            echo ""
+            echo "Target: \`PUBLIC_URL\` secret"
+            echo ""
+            echo "| Route | Result |"
+            echo "|---|---|"
+            printf '%s' "$summary_rows"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$overall" -ne 0 ]; then
+            echo "T19 smoke tests FAILED" >&2
+            exit 1
+          fi
+
           echo "T19 smoke tests passed"
