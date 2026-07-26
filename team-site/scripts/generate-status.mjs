@@ -85,6 +85,11 @@ const emailAlert = {
   secretRedacted: true,
 };
 
+const releaseManifest = {
+  task: 'T23',
+  path: `/${process.env.RELEASE_MANIFEST_PATH || 'release-manifest.json'}`,
+};
+
 const healthDir = join(distDir, 'health');
 const statusDir = join(distDir, 'status');
 const weatherDir = join(distDir, 'api', 'weather');
@@ -121,6 +126,7 @@ const status = {
   contact: contactProvider,
   features: featureFlags(),
   email: emailAlert,
+  releaseManifest,
 };
 
 writeFileSync(join(statusDir, 'index.html'), `${JSON.stringify(status, null, 2)}\n`);
