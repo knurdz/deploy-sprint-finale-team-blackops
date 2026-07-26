@@ -27,9 +27,6 @@ jobs:
       - name: Build
         env:
           VITE_PUBLIC_URL: ${{ vars.PUBLIC_URL || vars.DOMAIN_PUBLIC_URL || secrets.PUBLIC_URL || vars.IP_PUBLIC_URL }}
-          DOMAIN_CONNECTED: ${{ vars.DOMAIN_CONNECTED }}
-          ASSIGNED_DOMAIN: ${{ vars.ASSIGNED_DOMAIN }}
-          DNS_RECORD_TYPE: ${{ vars.DNS_RECORD_TYPE }}
         run: npm run build
         working-directory: team-site
 
@@ -38,3 +35,30 @@ jobs:
         with:
           name: site-dist-${{ github.sha }}
           path: team-site/dist
+
+  dry-run-deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: site-dist-${{ github.sha }}
+          path: downloaded-dist
+
+      - name: Verify no rebuild happened, list artifact contents
+        run: |
+          echo "Deploying pre-built artifact only. No npm ci / npm run build in this job."
+          find downloaded-dist -maxdepth 2 -type f | sort
+
+      - name: Record artifact identity in workflow summary
+        run: |
+          {
+            echo "### Build-once deploy identity"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Artifact name | \`site-dist-${{ github.sha }}\` |"
+            echo "| Commit SHA | \`${{ github.sha }}\` |"
+            echo "| Build workflow run | [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
+          } >> "$GITHUB_STEP_SUMMARY"
