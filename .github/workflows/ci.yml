@@ -61,8 +61,25 @@ jobs:
           VITE_FEATURE_SHOW_INSIGHTS: ${{ secrets.FEATURE_FLAG_NAME }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER || 'resend' }}
+          RELEASE_MANIFEST_PATH: ${{ vars.RELEASE_MANIFEST_PATH || 'release-manifest.json' }}
         run: npm run build
         working-directory: team-site
+
+      - name: Record release manifest in summary
+        run: |
+          {
+            echo "### Release manifest"
+            echo ""
+            echo '```json'
+            cat "team-site/dist/${{ vars.RELEASE_MANIFEST_PATH || 'release-manifest.json' }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload release manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest-${{ github.sha }}
+          path: team-site/dist/${{ vars.RELEASE_MANIFEST_PATH || 'release-manifest.json' }}
 
       - name: Upload dist artifact
         uses: actions/upload-artifact@v4
