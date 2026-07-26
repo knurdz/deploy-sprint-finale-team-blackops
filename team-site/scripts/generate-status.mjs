@@ -64,15 +64,25 @@ async function fetchWeather() {
 
 const weather = await fetchWeather();
 
+const contactProvider = {
+  task: 'T10',
+  provider: 'web3forms',
+  accessKeyStoredInSecret: Boolean(process.env.VITE_WEB3FORMS_ACCESS_KEY),
+  targetEmailConfigured: Boolean(process.env.WEB3FORMS_TARGET_EMAIL),
+};
+
 const healthDir = join(distDir, 'health');
 const statusDir = join(distDir, 'status');
 const weatherDir = join(distDir, 'api', 'weather');
+const contactDir = join(distDir, 'api', 'contact');
 mkdirSync(healthDir, { recursive: true });
 mkdirSync(statusDir, { recursive: true });
 mkdirSync(weatherDir, { recursive: true });
+mkdirSync(contactDir, { recursive: true });
 
 writeFileSync(join(healthDir, 'index.html'), 'ok\n');
 writeFileSync(join(weatherDir, 'index.html'), `${JSON.stringify(weather, null, 2)}\n`);
+writeFileSync(join(contactDir, 'index.html'), `${JSON.stringify(contactProvider, null, 2)}\n`);
 
 const status = {
   task: 'T01',
@@ -91,6 +101,7 @@ const status = {
     secretsRedacted: true,
   },
   weather,
+  contact: contactProvider,
 };
 
 writeFileSync(join(statusDir, 'index.html'), `${JSON.stringify(status, null, 2)}\n`);
