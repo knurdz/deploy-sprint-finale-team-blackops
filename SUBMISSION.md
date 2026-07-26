@@ -35,7 +35,7 @@ Use this section for short public notes and links. Full task instructions and ch
 | T03 |  |  |  |
 | T04 |  | `.github/workflows/rollback.yml` — `workflow_dispatch` with required `release_ref` input; checks out that ref, rebuilds `team-site`, verifies the rebuilt `/status` commit matches the resolved SHA, then requests deploy from the organizer deployer with that SHA. Live rollback run evidence pending. | Starter snippet declared the input as `release_ref` but read it as `inputs.releaseRef` (camelCase) — GitHub Actions `inputs.*` lookups are exact-key, so the unmodified snippet always sees an empty value and fails at `test -n`. Fixed by using `inputs.release_ref` consistently and added SHA-resolution plus a build-matches-target check on top of the starter's diagnostic step. |
 | T05 |  |  |  |
-| T06 |  |  |  |
+| T06 |  | `ci.yml` runs on `pull_request` and push to `main`, uses Node `${{ vars.NODE_VERSION \|\| '20' }}`, `npm ci` + `npm run build` in `team-site/`, uploads `team-site/dist` as `site-dist-${{ github.sha }}`. `deploy.yml` triggers via `workflow_run` after CI and only proceeds on `conclusion == 'success'`, so deployment already depends on this build. | This scaffold already existed from initial repo setup and satisfied every T06 requirement as-is; the only change was parameterizing the Node version via `vars.NODE_VERSION` (falls back to `20` if unset) instead of hardcoding it, per this task's credential pack. |
 | T07 |  |  |  |
 | T08 |  |  |  |
 | T09 |  |  |  |
