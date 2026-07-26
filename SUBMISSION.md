@@ -47,7 +47,7 @@ Use this section for short public notes and links. Full task instructions and ch
 | T15 |  |  |  |
 | T16 |  |  |  |
 | T17 |  |  |  |
-| T18 |  |  |  |
+| T18 |  | `deploy.yml` builds `team-site`'s Docker image, pushes it to `ghcr.io/knurdz/team-site:<sha>` with the built-in `GITHUB_TOKEN` (no new secret), verifies it serves `/health` in a local container, then submits the image/host/port to the existing organizer-deployer dispatch — no SSH credentials touched. | Verified locally: build, push-equivalent tag, and container health check all pass end-to-end; if the GHCR package isn't already public, a repo admin should flip its visibility once so the deployer/judges can pull it. |
 | T19 |  |  |  |
 | T20 |  |  |  |
 | T21 |  |  |  |
