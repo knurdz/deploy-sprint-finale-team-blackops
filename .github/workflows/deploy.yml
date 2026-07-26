@@ -71,6 +71,47 @@ jobs:
         with:
           ref: ${{ steps.request.outputs.sha }}
 
+      - name: Build container image
+        env:
+          SHA: ${{ steps.request.outputs.sha }}
+        run: |
+          docker build -t deploy-sprint/team-site:$SHA --build-arg GIT_SHA=$SHA team-site
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and push image to GHCR
+        id: image
+        env:
+          SHA: ${{ steps.request.outputs.sha }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          image=$(echo "ghcr.io/${OWNER}/team-site" | tr '[:upper:]' '[:lower:]')
+          docker tag "deploy-sprint/team-site:$SHA" "$image:$SHA"
+          docker push "$image:$SHA"
+          digest=$(docker image inspect "$image:$SHA" --format '{{index .RepoDigests 0}}' 2>/dev/null || echo 'unknown')
+          {
+            echo "image=$image:$SHA"
+            echo "digest=$digest"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify container serves the app
+        id: container_check
+        env:
+          IMAGE: ${{ steps.image.outputs.image }}
+        run: |
+          set -uo pipefail
+          healthy=false
+          container_id=$(docker run -d --rm -p 8080:80 "$IMAGE") || true
+
+          if [ -n "$container_id" ]; then
+            for i in $(seq 1 10); do
+              if curl -sf http://localhost:8080/health/ > /dev/null; then
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -135,6 +176,11 @@ jobs:
               fi
               sleep 1
             done
+            echo "--- Container log evidence ---"
+            docker logs "$container_id" || true
+            docker stop "$container_id" >/dev/null 2>&1 || true
+          else
+            echo "Container failed to start."
 
             if [ "$healthy" != true ]; then
               echo "Candidate never became healthy; container logs:"
@@ -148,6 +194,10 @@ jobs:
 
           echo "healthy=$healthy" >> "$GITHUB_OUTPUT"
 
+      - name: Fail if the pushed image doesn't serve correctly
+        if: steps.container_check.outputs.healthy != 'true'
+        run: |
+          echo "::error::Container built from the pushed image failed its health check; not submitting a deploy request."
       - name: Switch current release symlink
         if: steps.candidate_health.outputs.healthy == 'true'
         env:
@@ -186,6 +236,9 @@ jobs:
           TEAM_SHA: ${{ steps.request.outputs.sha }}
           TEAM_BRANCH: ${{ steps.request.outputs.branch }}
           SOURCE_RUN_ID: ${{ steps.request.outputs.source_run_id }}
+          IMAGE: ${{ steps.image.outputs.image }}
+          APP_PORT: ${{ vars.APP_PORT || '8080' }}
+          VPS_HOST: ${{ vars.VPS_HOST || '20.51.109.233' }}
         run: |
           set -euo pipefail
 
@@ -206,6 +259,9 @@ jobs:
                   "sha": os.environ["TEAM_SHA"],
                   "branch": os.environ["TEAM_BRANCH"],
                   "source_run_id": os.environ["SOURCE_RUN_ID"],
+                  "image": os.environ["IMAGE"],
+                  "app_port": os.environ["APP_PORT"],
+                  "vps_host": os.environ["VPS_HOST"],
               },
           }
 
@@ -220,7 +276,24 @@ jobs:
             "https://api.github.com/repos/${DEPLOYER_REPO}/dispatches" \
             --data @payload.json
 
-          echo "Requested organizer deployment for ${TEAM_REPO}@${TEAM_SHA}."
+- name: Record container deploy evidence
+        if: always()
+        env:
+          APP_PORT: ${{ vars.APP_PORT || '8080' }}
+          VPS_HOST: ${{ vars.VPS_HOST || '20.51.109.233' }}
+        run: |
+          {
+            echo "### Containerized VPS deploy"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Image | \`${{ steps.image.outputs.image }}\` |"
+            echo "| Digest | \`${{ steps.image.outputs.digest }}\` |"
+            echo "| Container health check (local, port 8080) | \`${{ steps.container_check.outputs.healthy }}\` |"
+            echo "| Target VPS host | \`$VPS_HOST\` |"
+            echo "| Target app port | \`$APP_PORT\` |"
+            echo "| Deploy request submitted to | \`knurdz/deploy-sprint-deployer\` (no SSH credentials used here) |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Record low-downtime release evidence
         if: always()
