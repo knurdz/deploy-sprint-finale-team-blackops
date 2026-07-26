@@ -13,6 +13,12 @@ export const deadlineCards: DeadlineCard[] = [
     action: 'Confirmed remotes, branches, and CI access are working; team is unblocked for feature work.',
   },
   {
+    id: 'merge-conflict-lab',
+    label: 'Merge conflict lab',
+    due: 'Saturday 10:00',
+    action: 'Resolve the deadline clash while preserving both dashboard changes.',
+  },
+  {
     id: 'review',
     label: 'Review rotation',
     due: 'Saturday 12:00',
