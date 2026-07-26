@@ -30,6 +30,9 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Resolve deploy request
         id: request
         env:
@@ -177,9 +180,7 @@ jobs:
             "https://api.github.com/repos/${DEPLOYER_REPO}/dispatches" \
             --data @payload.json
 
-          echo "Requested organizer deployment for ${TEAM_REPO}@${TEAM_SHA} (image ${IMAGE}, target ${VPS_HOST}:${APP_PORT})."
-
-      - name: Record container deploy evidence
+- name: Record container deploy evidence
         if: always()
         env:
           APP_PORT: ${{ vars.APP_PORT || '8080' }}
@@ -197,3 +198,18 @@ jobs:
             echo "| Target app port | \`$APP_PORT\` |"
             echo "| Deploy request submitted to | \`knurdz/deploy-sprint-deployer\` (no SSH credentials used here) |"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ vars.NODE_VERSION || '20' }}
+
+      - name: Send deploy alert via Resend
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL || 'Deploy Sprint <alerts@knurdz.org>' }}
+          ALERT_RECIPIENT_EMAIL: ${{ vars.ALERT_RECIPIENT_EMAIL || 'judges@knurdz.org' }}
+          EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER || 'resend' }}
+          DEPLOY_SHA: ${{ steps.request.outputs.sha }}
+          SOURCE_RUN_ID: ${{ steps.request.outputs.source_run_id }}
+        run: node scripts/send-deploy-alert.mjs
