@@ -85,6 +85,19 @@ const emailAlert = {
   secretRedacted: true,
 };
 
+const googleOAuth = {
+  task: 'T20',
+  provider: 'google',
+  // Reflects whether these secrets were present in *this build's* env
+  // (CI/deploy), not necessarily the live container's runtime env -- the
+  // authoritative, live version of this is /status/auth, served at
+  // request time by the auth server itself (see team-site/server).
+  configured: Boolean(
+    process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.SESSION_SECRET,
+  ),
+  secretExposed: false,
+};
+
 const healthDir = join(distDir, 'health');
 const statusDir = join(distDir, 'status');
 const weatherDir = join(distDir, 'api', 'weather');
@@ -121,6 +134,7 @@ const status = {
   contact: contactProvider,
   features: featureFlags(),
   email: emailAlert,
+  googleOAuth,
 };
 
 writeFileSync(join(statusDir, 'index.html'), `${JSON.stringify(status, null, 2)}\n`);

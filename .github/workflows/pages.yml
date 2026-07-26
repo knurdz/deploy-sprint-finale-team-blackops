@@ -7,7 +7,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ${{ vars.DEPLOY_CONCURRENCY_GROUP || 'deploy-blackops-production' }}
+  cancel-in-progress: false
 
 jobs:
   build:
