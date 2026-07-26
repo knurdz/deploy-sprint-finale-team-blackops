@@ -71,18 +71,35 @@ const contactProvider = {
   targetEmailConfigured: Boolean(process.env.WEB3FORMS_TARGET_EMAIL),
 };
 
+function featureFlags() {
+  return {
+    task: 'T15',
+    showInsights: process.env.FEATURE_SHOW_INSIGHTS === 'true',
+    valueRedacted: true,
+  };
+}
+const emailAlert = {
+  task: 'T16',
+  provider: process.env.EMAIL_PROVIDER || 'resend',
+  configured: Boolean(process.env.RESEND_API_KEY),
+  secretRedacted: true,
+};
+
 const healthDir = join(distDir, 'health');
 const statusDir = join(distDir, 'status');
 const weatherDir = join(distDir, 'api', 'weather');
 const contactDir = join(distDir, 'api', 'contact');
+const emailAlertDir = join(distDir, 'api', 'email-alert');
 mkdirSync(healthDir, { recursive: true });
 mkdirSync(statusDir, { recursive: true });
 mkdirSync(weatherDir, { recursive: true });
 mkdirSync(contactDir, { recursive: true });
+mkdirSync(emailAlertDir, { recursive: true });
 
 writeFileSync(join(healthDir, 'index.html'), 'ok\n');
 writeFileSync(join(weatherDir, 'index.html'), `${JSON.stringify(weather, null, 2)}\n`);
 writeFileSync(join(contactDir, 'index.html'), `${JSON.stringify(contactProvider, null, 2)}\n`);
+writeFileSync(join(emailAlertDir, 'index.html'), `${JSON.stringify(emailAlert, null, 2)}\n`);
 
 const status = {
   task: 'T01',
@@ -102,6 +119,8 @@ const status = {
   },
   weather,
   contact: contactProvider,
+  features: featureFlags(),
+  email: emailAlert,
 };
 
 writeFileSync(join(statusDir, 'index.html'), `${JSON.stringify(status, null, 2)}\n`);

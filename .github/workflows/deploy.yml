@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 concurrency:
   group: request-organizer-deploy
@@ -26,9 +27,12 @@ jobs:
         !contains(github.event.workflow_run.head_commit.message, '[skip deploy]')
       )
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Resolve deploy request
         id: request
         env:
@@ -62,7 +66,169 @@ jobs:
             echo "source_run_id=$source_run_id"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Checkout candidate commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.request.outputs.sha }}
+
+      - name: Build container image
+        env:
+          SHA: ${{ steps.request.outputs.sha }}
+        run: |
+          docker build -t deploy-sprint/team-site:$SHA --build-arg GIT_SHA=$SHA team-site
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag and push image to GHCR
+        id: image
+        env:
+          SHA: ${{ steps.request.outputs.sha }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          image=$(echo "ghcr.io/${OWNER}/team-site" | tr '[:upper:]' '[:lower:]')
+          docker tag "deploy-sprint/team-site:$SHA" "$image:$SHA"
+          docker push "$image:$SHA"
+          digest=$(docker image inspect "$image:$SHA" --format '{{index .RepoDigests 0}}' 2>/dev/null || echo 'unknown')
+          {
+            echo "image=$image:$SHA"
+            echo "digest=$digest"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify container serves the app
+        id: container_check
+        env:
+          IMAGE: ${{ steps.image.outputs.image }}
+        run: |
+          set -uo pipefail
+          healthy=false
+          container_id=$(docker run -d --rm -p 8080:80 "$IMAGE") || true
+
+          if [ -n "$container_id" ]; then
+            for i in $(seq 1 10); do
+              if curl -sf http://localhost:8080/health/ > /dev/null; then
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ vars.NODE_VERSION || '20' }}
+
+      - name: Build candidate release
+        env:
+          VITE_PUBLIC_URL: ${{ vars.PUBLIC_URL || vars.DOMAIN_PUBLIC_URL || secrets.PUBLIC_URL || vars.IP_PUBLIC_URL }}
+          DOMAIN_CONNECTED: ${{ vars.DOMAIN_CONNECTED }}
+          ASSIGNED_DOMAIN: ${{ vars.ASSIGNED_DOMAIN }}
+          DNS_RECORD_TYPE: ${{ vars.DNS_RECORD_TYPE }}
+          OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+          OPENWEATHER_CITY: ${{ vars.OPENWEATHER_CITY || 'Colombo' }}
+          VITE_WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
+          WEB3FORMS_TARGET_EMAIL: ${{ vars.WEB3FORMS_TARGET_EMAIL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER || 'resend' }}
+        run: |
+          npm ci
+          npm run build
+        working-directory: team-site
+
+      - name: Stage release directory
+        id: release
+        env:
+          SHA: ${{ steps.request.outputs.sha }}
+        run: |
+          set -euo pipefail
+          release_dir="releases/$SHA"
+          mkdir -p "$release_dir"
+          cp -r team-site/dist/. "$release_dir"/
+          echo "T17 candidate release $release_dir"
+          echo "release_dir=$release_dir" >> "$GITHUB_OUTPUT"
+
+      - name: Build and health-check candidate container
+        id: candidate_health
+        env:
+          RELEASE_DIR: ${{ steps.release.outputs.release_dir }}
+          SHA: ${{ steps.request.outputs.sha }}
+        run: |
+          set -uo pipefail
+          healthy=false
+
+          cat > Dockerfile.release <<EOF
+          FROM nginx:alpine
+          COPY ${RELEASE_DIR} /usr/share/nginx/html
+          EOF
+
+          if ! docker build -f Dockerfile.release -t "candidate:${SHA}" .; then
+            echo "Candidate image failed to build; treating as an unhealthy candidate."
+            echo "healthy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          container_id=$(docker run -d --rm -p 8090:80 "candidate:${SHA}") || true
+
+          if [ -n "$container_id" ]; then
+            for i in $(seq 1 10); do
+              if curl -sf http://localhost:8090/health/ > /dev/null; then
+                healthy=true
+                break
+              fi
+              sleep 1
+            done
+            echo "--- Container log evidence ---"
+            docker logs "$container_id" || true
+            docker stop "$container_id" >/dev/null 2>&1 || true
+          else
+            echo "Container failed to start."
+
+            if [ "$healthy" != true ]; then
+              echo "Candidate never became healthy; container logs:"
+              docker logs "$container_id" || true
+            fi
+
+            docker stop "$container_id" >/dev/null 2>&1 || true
+          else
+            echo "Candidate container failed to start; treating as an unhealthy candidate."
+          fi
+
+          echo "healthy=$healthy" >> "$GITHUB_OUTPUT"
+
+      - name: Fail if the pushed image doesn't serve correctly
+        if: steps.container_check.outputs.healthy != 'true'
+        run: |
+          echo "::error::Container built from the pushed image failed its health check; not submitting a deploy request."
+      - name: Switch current release symlink
+        if: steps.candidate_health.outputs.healthy == 'true'
+        env:
+          RELEASE_DIR: ${{ steps.release.outputs.release_dir }}
+        run: |
+          set -euo pipefail
+          ln -sfn "$RELEASE_DIR" current
+          echo "Switched current -> $RELEASE_DIR after candidate health check passed."
+
+      - name: Record known-good release evidence on failed health check
+        if: steps.candidate_health.outputs.healthy != 'true'
+        env:
+          HEALTH_URL: ${{ vars.HEALTH_URL || 'https://blackops.deploysprint-finals.knurdz.org/health' }}
+        run: |
+          set +e
+          previous_status=$(curl -s -o /dev/null -w '%{http_code}' "$HEALTH_URL")
+          set -e
+          {
+            echo "### Candidate health check failed -- deploy blocked"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Candidate release | \`${{ steps.release.outputs.release_dir }}\` |"
+            echo "| Previously deployed release | still live, untouched |"
+            echo "| Known-good health check (\`$HEALTH_URL\`) | HTTP \`$previous_status\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Candidate failed its health check; previous release was left in place and no deploy was requested."
+          exit 1
+
       - name: Request deploy from organizer deployer
+        if: steps.candidate_health.outputs.healthy == 'true'
         env:
           DEPLOYER_DISPATCH_TOKEN: ${{ secrets.DEPLOYER_DISPATCH_TOKEN }}
           DEPLOYER_REPO: knurdz/deploy-sprint-deployer
@@ -70,6 +236,9 @@ jobs:
           TEAM_SHA: ${{ steps.request.outputs.sha }}
           TEAM_BRANCH: ${{ steps.request.outputs.branch }}
           SOURCE_RUN_ID: ${{ steps.request.outputs.source_run_id }}
+          IMAGE: ${{ steps.image.outputs.image }}
+          APP_PORT: ${{ vars.APP_PORT || '8080' }}
+          VPS_HOST: ${{ vars.VPS_HOST || '20.51.109.233' }}
         run: |
           set -euo pipefail
 
@@ -90,6 +259,9 @@ jobs:
                   "sha": os.environ["TEAM_SHA"],
                   "branch": os.environ["TEAM_BRANCH"],
                   "source_run_id": os.environ["SOURCE_RUN_ID"],
+                  "image": os.environ["IMAGE"],
+                  "app_port": os.environ["APP_PORT"],
+                  "vps_host": os.environ["VPS_HOST"],
               },
           }
 
@@ -104,4 +276,51 @@ jobs:
             "https://api.github.com/repos/${DEPLOYER_REPO}/dispatches" \
             --data @payload.json
 
-          echo "Requested organizer deployment for ${TEAM_REPO}@${TEAM_SHA}."
+- name: Record container deploy evidence
+        if: always()
+        env:
+          APP_PORT: ${{ vars.APP_PORT || '8080' }}
+          VPS_HOST: ${{ vars.VPS_HOST || '20.51.109.233' }}
+        run: |
+          {
+            echo "### Containerized VPS deploy"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Image | \`${{ steps.image.outputs.image }}\` |"
+            echo "| Digest | \`${{ steps.image.outputs.digest }}\` |"
+            echo "| Container health check (local, port 8080) | \`${{ steps.container_check.outputs.healthy }}\` |"
+            echo "| Target VPS host | \`$VPS_HOST\` |"
+            echo "| Target app port | \`$APP_PORT\` |"
+            echo "| Deploy request submitted to | \`knurdz/deploy-sprint-deployer\` (no SSH credentials used here) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record low-downtime release evidence
+        if: always()
+        env:
+          SHA: ${{ steps.request.outputs.sha }}
+        run: |
+          {
+            echo "### Low-downtime release check"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Candidate release dir | \`${{ steps.release.outputs.release_dir }}\` |"
+            echo "| Candidate SHA | \`$SHA\` |"
+            echo "| Candidate health check | \`${{ steps.candidate_health.outputs.healthy }}\` |"
+            echo "| Traffic switch requested | \`${{ steps.candidate_health.outputs.healthy == 'true' }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ vars.NODE_VERSION || '20' }}
+
+      - name: Send deploy alert via Resend
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL || 'Deploy Sprint <alerts@knurdz.org>' }}
+          ALERT_RECIPIENT_EMAIL: ${{ vars.ALERT_RECIPIENT_EMAIL || 'judges@knurdz.org' }}
+          EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER || 'resend' }}
+          DEPLOY_SHA: ${{ steps.request.outputs.sha }}
+          SOURCE_RUN_ID: ${{ steps.request.outputs.source_run_id }}
+        run: node scripts/send-deploy-alert.mjs
