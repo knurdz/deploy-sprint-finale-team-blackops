@@ -17,12 +17,31 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ vars.NODE_VERSION || '20' }}
-          cache: npm
-          cache-dependency-path: team-site/package-lock.json
+
+      - name: Cache npm dependencies
+        id: npm-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('team-site/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
 
       - name: Install dependencies
         run: npm ci
         working-directory: team-site
+
+      - name: Record dependency cache evidence
+        run: |
+          {
+            echo "### Dependency cache"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Cache key | \`${{ runner.os }}-npm-${{ hashFiles('team-site/package-lock.json') }}\` |"
+            echo "| Cache hit | \`${{ steps.npm-cache.outputs.cache-hit }}\` |"
+            echo "| Install command | \`npm ci\` (working-directory: team-site) |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Run release readiness check
         run: npm test
