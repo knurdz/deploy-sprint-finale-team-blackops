@@ -47,6 +47,8 @@ Use this section for short public notes and links. Full task instructions and ch
 | T15 |  |  |  |
 | T16 |  |  |  |
 | T17 |  | `deploy.yml` now builds each candidate release into `releases/$SHA`, health-checks it in an isolated container before touching anything live, and only requests the organizer deploy (or flips the `current` symlink) if that check passes — otherwise it leaves the previous release live and fails the job with evidence. | Verified locally end-to-end: a healthy candidate passes and would switch; a broken one fails cleanly while the real production `/health` stays confirmed up. |
+| T16 |  | `scripts/send-deploy-alert.mjs` sends a Resend deploy email from `deploy.yml` using the server-only `RESEND_API_KEY` secret, with `/status.email` and `/api/email-alert` exposing `provider`/`configured`/`secretRedacted` evidence and a dry-run fallback when the key is unset. | Verified locally with and without the key set: `configured` flips correctly, the key never appears in `dist/` or as `VITE_RESEND_API_KEY`, and the alert script always exits `0`. |
+| T17 |  |  |  |
 | T18 |  |  |  |
 | T19 |  |  |  |
 | T20 |  |  |  |
