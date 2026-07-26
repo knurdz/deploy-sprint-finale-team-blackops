@@ -57,6 +57,8 @@ jobs:
           OPENWEATHER_CITY: ${{ vars.OPENWEATHER_CITY || 'Colombo' }}
           VITE_WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
           WEB3FORMS_TARGET_EMAIL: ${{ vars.WEB3FORMS_TARGET_EMAIL }}
+          FEATURE_SHOW_INSIGHTS: ${{ secrets.FEATURE_FLAG_NAME }}
+          VITE_FEATURE_SHOW_INSIGHTS: ${{ secrets.FEATURE_FLAG_NAME }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER || 'resend' }}
         run: npm run build

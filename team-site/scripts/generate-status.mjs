@@ -71,6 +71,13 @@ const contactProvider = {
   targetEmailConfigured: Boolean(process.env.WEB3FORMS_TARGET_EMAIL),
 };
 
+function featureFlags() {
+  return {
+    task: 'T15',
+    showInsights: process.env.FEATURE_SHOW_INSIGHTS === 'true',
+    valueRedacted: true,
+  };
+}
 const emailAlert = {
   task: 'T16',
   provider: process.env.EMAIL_PROVIDER || 'resend',
@@ -112,6 +119,7 @@ const status = {
   },
   weather,
   contact: contactProvider,
+  features: featureFlags(),
   email: emailAlert,
 };
 
