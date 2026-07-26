@@ -32,6 +32,8 @@ jobs:
           DNS_RECORD_TYPE: ${{ vars.DNS_RECORD_TYPE }}
           OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
           OPENWEATHER_CITY: ${{ vars.OPENWEATHER_CITY || 'Colombo' }}
+          VITE_WEB3FORMS_ACCESS_KEY: ${{ secrets.WEB3FORMS_ACCESS_KEY }}
+          WEB3FORMS_TARGET_EMAIL: ${{ vars.WEB3FORMS_TARGET_EMAIL }}
         run: npm run build
         working-directory: team-site
 
