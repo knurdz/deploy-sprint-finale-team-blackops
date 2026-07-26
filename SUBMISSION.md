@@ -31,7 +31,7 @@ Use this section for short public notes and links. Full task instructions and ch
 | Task | PR | Evidence | Notes |
 | --- | --- | --- | --- |
 | T01 | #1 | `http://20.51.109.233`, `/health` (200), `/status` (team/commit/releaseId/deployTime/T01 marker) | Deploy workflow requests organizer deployer after CI passes on `main`; `/health` and `/status` are generated at build time from the actual commit. |
-| T02 |  |  |  |
+| T02 |  | [docs/t02-dns-evidence.md](docs/t02-dns-evidence.md) | Pending: DNS records + dig/curl evidence to be filled in after portal login |
 | T03 |  |  |  |
 | T04 |  |  |  |
 | T05 |  |  |  |

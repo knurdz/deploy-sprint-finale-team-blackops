@@ -27,6 +27,9 @@ jobs:
       - name: Build
         env:
           VITE_PUBLIC_URL: ${{ vars.PUBLIC_URL || vars.DOMAIN_PUBLIC_URL || secrets.PUBLIC_URL || vars.IP_PUBLIC_URL }}
+          DOMAIN_CONNECTED: ${{ vars.DOMAIN_CONNECTED }}
+          ASSIGNED_DOMAIN: ${{ vars.ASSIGNED_DOMAIN }}
+          DNS_RECORD_TYPE: ${{ vars.DNS_RECORD_TYPE }}
         run: npm run build
         working-directory: team-site
 
