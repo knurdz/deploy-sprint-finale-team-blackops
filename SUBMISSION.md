@@ -58,7 +58,7 @@ Use this section for short public notes and links. Full task instructions and ch
 | T19 |  |  |  |
 | T20 |  |  |  |
 | T21 |  |  |  |
-| T22 |  |  |  |
+| T22 |  | Root `docker-compose.yml` defines a `team-site` runtime service (project name `deploy-sprint-blackops` via the top-level `name:` key), building `team-site/Dockerfile` and publishing it on `${APP_PORT}` with `image: deploy-sprint/team-site:${APP_VERSION}`. Root `.env.example` documents `APP_VERSION`/`APP_PORT` as placeholders only (no real values, gitignored `.env` for the real file). New `compose-validate` job in `ci.yml` runs `docker compose config`, `docker compose build`, brings the service up, and smoke-tests `GET /` and `GET /health/` against the Compose-run container before tearing it down. | Verified locally end-to-end with Docker Desktop: `docker compose config` resolves the placeholders and project name correctly, `docker compose build` succeeds, and `docker compose up -d` serves `/`, `/health/`, and `/status/` on the mapped port with `docker compose ps` showing the container healthy. No secrets are involved (`No additional GitHub Secrets required` per the credential pack) — `COMPOSE_PROJECT_NAME` is a fixed, non-secret team value, so it's committed directly via the `name:` key rather than templated. Separately (not part of this task but discovered while working on it): `deploy.yml` on `main` had invalid YAML from an earlier bad merge of T16/T17/T18 — filed as a standalone fix in `fix/deploy-yml-broken-merge` since it was blocking every deploy run, unrelated to Compose. |
 | T23 |  |  |  |
 | T24 |  |  |  |
 | T25 |  |  |  |
